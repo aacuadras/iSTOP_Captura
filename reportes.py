@@ -3,7 +3,7 @@ from tkinter import ttk
 from tkinter import messagebox
 import csv, pyodbc
 
-MDB = 'c:\SetupPV\Data\DBTRUCK.mdb' 
+MDB = 'c:/SetupPV/Data/DBTRUCK.mdb' 
 DRV = '{Microsoft Access Driver (*.mdb)}'
 PWD = 'pw'
 
@@ -120,10 +120,17 @@ def tablaCliente(cl, value):
             if(cl != 4):
                 totalItems = 0
                 for i in rows:
+                    SQL = "SELECT costo from cliente WHERE nombre='" + value + "';"
+                    curCost = cur.execute(SQL).fetchall()
+                    i[7] = curCost[0][0]
+                    totalItems += 1
+                    '''
                     i[7] = "$280.00"
                     totalItems += 1
+                    '''
             else:
                 for i in rows:
+                    curCost = 0
                     i[7] = "CANCELADO"
                 
             with open('REPORTE_DIARIO.csv', 'w', newline='') as fou:
@@ -131,7 +138,7 @@ def tablaCliente(cl, value):
                 csv_writer.writerow(['FECHA', 'CLIENTE/DESTINO', 'FACTURA/FOLIO', 'ECONOMICO', 'ALPHA', 'PLACAS', 'FOLIO BASCULA', '$'])
                 csv_writer.writerows(rows)
                 if(cl != 4):
-                    csv_writer.writerow(['','','','','','TOTAL',str(totalItems), "$" + str(280 * totalItems) + ".00"])
+                    csv_writer.writerow(['','','','','','TOTAL',str(totalItems), "$" + str(curCost[0][0] * totalItems) + ".00"])
             messagebox.showinfo("Creado", "Reporte Creado")
             r.destroy()
 
@@ -301,11 +308,40 @@ def create_cancel():
     submit_cancel = Button(cancelar, text="Cancelar", command=cancel_folio)
     submit_cancel.pack()
 
+def change_charge():
+    def save_cost():
+        SQL = "UPDATE cliente SET costo=" + entryCost.get() + " WHERE nombre='" + activeClient + "';"
+        cur.execute(SQL)
+        cur.commit()
+
+        messagebox.showinfo("Guardado", "Nuevo costo para " + activeClient + ": $" + entryCost.get())
+        c.destroy()
+
+    c = Toplevel(top)
+    c.title("Editar Costo")
+
+    activeClient = str(list1.get(ACTIVE))
+    SQL = "SELECT costo FROM cliente WHERE nombre='" + activeClient + "';"
+    cost = cur.execute(SQL).fetchall()
+
+    label14 = Label(c, text='Cambiar costo para cliente ' + activeClient)
+    label14.pack()
+    #Fetching cost from database
+    entryCost = Entry(c)
+    entryCost.pack()
+    entryCost.delete(0,END)
+    entryCost.insert(0,cost[0][0])
+    button4 = Button(c, text='Guardar', command=save_cost)
+    button4.pack()
+
+
 
 button1 = Button(frame, text="Seleccionar", command=selecc)
 button1.grid(row=1)
 button2 = Button(frame, text="Cancelar Folio", command=create_cancel)
 button2.grid(row=1, column=1)
+button3 = Button(frame, text="Cambiar Precio", command=change_charge)
+button3.grid(row=2,column=1)
 
 top.mainloop()
 cur.close()
