@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
 import csv, pyodbc
+import xlsxwriter
 
 MDB = 'c:/SetupPV/Data/DBTRUCK.mdb' 
 DRV = '{Microsoft Access Driver (*.mdb)}'
@@ -114,9 +115,55 @@ def tablaCliente(cl, value):
         
     
     def generate_report():
-        def create_csv():
-            SQL = "SELECT FECHA1, PROVEEDOR, FOLIO, embarque, observacion, PLACAS, guia, PRODUCTO FROM HISTORIA WHERE FECHA1='" + str(date.get()) + "' AND CLIENTE=" + str(cl) + ";"
+        def create_excel():
+            #Creating new file and defining format
+            dateString = ""
+            for elem in date.get():
+                if(elem == '/'):
+                    dateString += '_'
+                else:
+                    dateString += elem
+            workbook = xlsxwriter.Workbook('REPORTE_DIARIO_' + dateString + '_' + value +'.xlsx')
+            worksheet = workbook.add_worksheet()
+            first_cell_format = workbook.add_format()
+            center = workbook.add_format()
+            money = workbook.add_format({'num_format':'$#,##0.00'})
+            total = workbook.add_format()
+
+            #Adjusting column width and applying format to first row
+            worksheet.set_column('A:A', 9.11)
+            worksheet.set_column('B:B', 10.11)
+            worksheet.set_column('C:C', 20.26)
+            worksheet.set_column('D:D', 16.68)
+            worksheet.set_column('E:E', 12.68)
+            worksheet.set_column('F:F', 7)
+            worksheet.set_column('G:G', 8.11)
+            worksheet.set_column('H:H', 15.68)
+            worksheet.set_column('I:I', 8.42)
+            worksheet.set_column('J:J', 24.26)
+            worksheet.set_column('K:K', 9.42)
+            worksheet.set_column('L:L', 12.84)
+            worksheet.set_column('M:M', 11.11)
+            worksheet.set_column('N:N', 8.11)
+            first_cell_format.set_align('center')
+            first_cell_format.set_bg_color('#5B9BD5')
+            first_cell_format.set_bold()
+            first_cell_format.set_font_color('white')
+            center.set_align('center')
+            total.set_bold()
+            total.set_align('center')
+
+            firstRow = ['SEMANA', 'FECHA', 'CLIENTE/DESTINO', 'FACTURA/FOLIO','ECONOMICO','ALPHA','PLACAS','FOLIO BASCULA', '$', 'CLIENTE/FACTURACION','PERMISO',' No PERMISO', '$ PERMISO', 'STATUS']
+            cols = 0
+            for val in (firstRow):
+                worksheet.write(0, cols, val, first_cell_format)
+                cols += 1
+
+            #Call SQL Query and retrieve data
+            SQL = "SELECT FECHA1, PROVEEDOR, FOLIOGEN, embarque, observacion, PLACAS, guia, PRODUCTO FROM HISTORIA WHERE FECHA1='" + str(date.get()) + "' AND CLIENTE=" + str(cl) + ";"
             rows = cur.execute(SQL).fetchall()
+
+            #Sets the price for the client price
             if(cl != 4):
                 totalItems = 0
                 for i in rows:
@@ -124,24 +171,26 @@ def tablaCliente(cl, value):
                     curCost = cur.execute(SQL).fetchall()
                     i[7] = curCost[0][0]
                     totalItems += 1
-                    '''
-                    i[7] = "$280.00"
-                    totalItems += 1
-                    '''
             else:
                 for i in rows:
                     curCost = 0
                     i[7] = "CANCELADO"
-                
-            with open('REPORTE_DIARIO.csv', 'w', newline='') as fou:
-                csv_writer = csv.writer(fou) # default field-delimiter is ","
-                csv_writer.writerow(['FECHA', 'CLIENTE/DESTINO', 'FACTURA/FOLIO', 'ECONOMICO', 'ALPHA', 'PLACAS', 'FOLIO BASCULA', '$'])
-                csv_writer.writerows(rows)
-                if(cl != 4):
-                    csv_writer.writerow(['','','','','','TOTAL',str(totalItems), "$" + str(curCost[0][0] * totalItems) + ".00"])
+
+            curRow = 1
+            for i in rows:
+                worksheet.write_row(curRow, 1, i, center)
+                worksheet.write(curRow, 9, value, center)
+                curRow += 1
+
+            totalPrice = curCost[0][0] * totalItems
+            cellRange = "I2:I250"
+            worksheet.conditional_format(cellRange, {'type': 'cell', 'criteria': '>=', 'value': 0, 'format': money})
+            worksheet.write(totalItems + 1, 7, 'TOTAL', total)
+            worksheet.write(totalItems + 1, 8, totalPrice, total)
+            #Close and save the workbook
+            workbook.close()
             messagebox.showinfo("Creado", "Reporte Creado")
             r.destroy()
-
 
         r = Toplevel(tableWindow)
         r.title('Crear Reporte')
@@ -149,7 +198,7 @@ def tablaCliente(cl, value):
         label11.pack()
         date = Entry(r)
         date.pack()
-        submit = Button(r, text="Seleccionar", command=create_csv)
+        submit = Button(r, text="Seleccionar", command=create_excel)
         submit.pack()
 
 
